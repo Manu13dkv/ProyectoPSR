@@ -5,7 +5,11 @@
 #include "ns3/command-line.h"
 #include "ns3/core-module.h"
 
-#include "servidores.h"
+
+//Librerias propias
+#include "node_helper.h"
+
+//=======================================================================================
 
 /*#include "ns3/point-to-point-helper.h"
 #include "ns3/point-to-point-net-device.h"
@@ -27,49 +31,64 @@
 #include "retardo.h"
 */
 
-//#define FACTORI 75
-//#define FACTORG 75
-//#define PROGRAMADOR 1
-//#define COMERCIAL 1
-//#define ADMIN 1
+//Constantes
+#define SERVIDOR 0
+#define CLIENTE 1
+//=======================================================================================
+
+
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("ProyectoPsr"); 
+NS_LOG_COMPONENT_DEFINE ("ProyectoPSR"); 
 
 int main (int argc, char *argv[])
 {
 
 Time::SetResolution(Time::NS);
-//int factorglobal = FACTORG ;
-//int factorindi = FACTORI;
-//int n_programador= PROGRAMADOR;
-//int n_comercial= COMERCIAL;
-//int n_admin= ADMIN;
+
+// Parametros por defecto
+//=======================================================================================
 int num_clientes = 5;
+int num_servidores = 1;
 Time duracion_simulacion = Time("100ms");
 
+// CMD 
+//=======================================================================================
 CommandLine cmd;
-
-/*cmd.AddValue ("factorindi", "Factor de ocupación que tiene que cumplir cada servidor", factorindi);
-cmd.AddValue ("programadores", "Numero de programadores que va a tener nuestro escenario", n_programador);
-cmd.AddValue ("comerciales", "Numero de comerciales que va a tener nuestro escenario", n_comercial);
-cmd.AddValue ("administradores", "Numero de administradores que va a tener nuestro escenario", n_admin);
-*/
 
 cmd.AddValue ("num_clientes", "Numero de clientes del sistema", num_clientes);
 
 cmd.Parse (argc, argv);
 
-Servidores *servidores = new Servidores();
-servidores->GetNodos(num_clientes);
+//Configuración del escenario
+//=======================================================================================
+NodeContainer c_servidores;
+NodeContainer c_clientes;
 
-//poner para calcular el factor de ocuapcion global
+NodeHelper* h_nodos = new NodeHelper(); //Nos configura hasta nivel IP cualquier nodo
 
- // Lanzamos simulación
+//Asignamiento de direcciones, clientes más baja, servidores, mas alta.
+c_servidores = h_nodos->GetNodos(num_servidores, SERVIDOR, "10.10.10.0");
+c_clientes = h_nodos->GetNodos(num_clientes, CLIENTE, "10.10.10.0");
+
+//Capa de aplicación.
+//=======================================================================================
+
+//Sistema cliente-servidor UDP básico que nos permite obtener parámetros de GoS iniciales.
+uint16_t puerto_servidor =20;
+
+UdpServerHelper h_servers_apps(puerto_servidor);    
+h_servers_apps.Install(c_servidores);
+
+UdpClientHelper h_clients_apps(c_servidores.Get(0)->GetObject<Ipv4>()->GetAddress(0,0).GetLocal(), puerto_servidor);
+h_clients_apps.Install(c_clientes);
+
+ // Simulación
+ //=======================================================================================
 NS_LOG_INFO("Arranca simulación");
 Simulator::Stop(duracion_simulacion);
 Simulator::Run();
 NS_LOG_INFO("Fin simulación");
-
+//=======================================================================================
 
 }
