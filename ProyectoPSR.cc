@@ -5,8 +5,11 @@
 #include "ns3/command-line.h"
 #include "ns3/core-module.h"
 
+#include "ns3/bridge-helper.h"
+
 
 //Librerias propias
+//=======================================================================================
 #include "node_helper.h"
 
 //=======================================================================================
@@ -64,12 +67,16 @@ cmd.Parse (argc, argv);
 //=======================================================================================
 NodeContainer c_servidores;
 NodeContainer c_clientes;
+NodeContainer c_nodos;
 
 NodeHelper* h_nodos = new NodeHelper(); //Nos configura hasta nivel IP cualquier nodo
 
 //Asignamiento de direcciones, clientes más baja, servidores, mas alta.
 c_servidores = h_nodos->GetNodos(num_servidores, SERVIDOR, "10.10.10.0");
 c_clientes = h_nodos->GetNodos(num_clientes, CLIENTE, "10.10.10.0");
+
+c_nodos.Add(c_clientes);
+c_nodos.Add(c_servidores);
 
 //Capa de aplicación.
 //=======================================================================================
@@ -83,8 +90,20 @@ h_servers_apps.Install(c_servidores);
 UdpClientHelper h_clients_apps(c_servidores.Get(0)->GetObject<Ipv4>()->GetAddress(0,0).GetLocal(), puerto_servidor);
 h_clients_apps.Install(c_clientes);
 
- // Simulación
- //=======================================================================================
+//Conexiones al Puente
+BridgeHelper h_bridge;
+Ptr<Node> puente = CreateObject<Node>();
+NetDeviceContainer c_dispositivos;
+NetDeviceContainer c_disp_bridge;
+
+for (int i = 0; i < (num_clientes + num_servidores); i++ ){
+      c_disp_bridge.Add(c_nodos.Get(i)->GetDevice(1));
+}
+h_bridge.Install (puente, c_disp_bridge);
+
+//=======================================================================================
+// Simulación
+//=======================================================================================
 NS_LOG_INFO("Arranca simulación");
 Simulator::Stop(duracion_simulacion);
 Simulator::Run();
