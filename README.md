@@ -1,4 +1,13 @@
-# ProyectoPSR
-Proyecto de planificación y simulación de redes.
+# Simulación de servidor web de alta disponibilidad en ns3
 
-1er avance -> Creación del escenario simplificado.
+Planificación y Simulación de Redes 2022/2023.
+
+## Autores.
+    - Manuel Domínguez Montero.
+    - Juan Manuel Alcalá Palomo.
+    - Ismael García Mayorga.
+    - Julio Navarro Vázquez. 
+
+## Tabla de contenidos.
+
+## Introducción.
