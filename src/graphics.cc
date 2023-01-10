@@ -1,7 +1,7 @@
 /*
     Planificación y simulación de redes 2022/2023
 
-    Autores:
+    Authors:
         - Manuel Domínguez Montero.
         - Juan Manuel Alcalá Palomo.
         - Ismael García Mayorga.
@@ -9,8 +9,11 @@
 
 */
 
-// librerías propias.
+// Own libraries
+//=========================================
 
-// librerías ns3
+// ns3 libraries.
+//=========================================
 
-// librerías estándar
+// Standard libraries.
+//=========================================
