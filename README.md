@@ -13,7 +13,7 @@ Planificación y Simulación de Redes 2022/2023.
 ## Introducción.
 
 En este proyecto, se pretende modelar un servidor web con capacidad de Proxy inverso y balanceo de carga, funcionalidades
-qu encontramos en los servidores más utilizados en el mercado como Apache2 y NGINX. 
+que encontramos en los servidores más utilizados en el mercado como Apache2 y NGINX. 
 
 ## Ejecución.
 
