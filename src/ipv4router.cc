@@ -35,6 +35,7 @@ Ipv4Router(void)
   
   InternetStackHelper h_inetstack;
   h_inetstack.Install(m_node);
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 }
 
 
@@ -180,6 +181,7 @@ Ipv4Router::Link(Ptr<Node> guest, std::string iface_name){
   }else{
     CsmaHelper csma;
     csma.Install(guest, iface->GetChannel()->GetObject<CsmaChannel>());
+    Ipv4GlobalRoutingHelper::RecomputeRoutingTables();
   }
 
   return iface;
