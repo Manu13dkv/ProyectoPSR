@@ -24,6 +24,7 @@
 #include "ns3/ipv4-address.h"
 #include "ns3/node.h"
 #include "ns3/internet-stack-helper.h"
+#include "ns3/ipv4-global-routing-helper.h"
 
 // standard libraries.
 //=========================================
