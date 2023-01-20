@@ -1,12 +1,10 @@
 /*
     Planificación y simulación de redes 2022/2023
-
     Autores:
         - Manuel Domínguez Montero.
         - Juan Manuel Alcalá Palomo.
         - Ismael García Mayorga.
         - Julio Navarro Vázquez
-
 */
 
 // Own libraries.
@@ -35,7 +33,7 @@ Ipv4Router(void)
   
   InternetStackHelper h_inetstack;
   h_inetstack.Install(m_node);
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+  
 }
 
 
@@ -145,21 +143,29 @@ Ipv4Router::GetGlobalDataRate(){
 }
 
 
-Ptr<CsmaNetDevice>           
+Ptr<CsmaNetDevice>    
 Ipv4Router::IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask){
   
   CsmaHelper csma;
   csma.SetChannelAttribute("DataRate", DataRateValue(m_gdata_rate));
 
-  Ptr<CsmaChannel> channel = CreateObject<CsmaChannel>();
-  Ptr<CsmaNetDevice> iface;
-  iface = csma.Install(m_node).Get(0)->GetObject<CsmaNetDevice>();
+  Ptr<CsmaNetDevice> iface = 
+  csma.Install(m_node).Get(0)->GetObject<CsmaNetDevice>();
   
-  m_node->GetObject<Ipv4>()->  // Must exists, is settled up in constructor. 
-        AddAddress(
-          m_node->GetObject<Ipv4>()->AddInterface(iface),
+  Ptr<Ipv4> ipv4 = m_node->GetObject<Ipv4>();
+  uint32_t ip_index = ipv4->AddInterface(iface);
+
+  ipv4->AddAddress(
+          ip_index,
           Ipv4InterfaceAddress(ip, mask)
         );
+
+  ipv4->SetUp(ip_index);
+  
+  ipv4->SetForwarding(
+    ip_index,
+    true
+  );
 
   Names::Add(std::to_string(m_node->GetId())+iface_name, iface);
   
@@ -168,24 +174,45 @@ Ipv4Router::IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask){
   return iface;
 }  
 
-
+/*
+  We pretend to emulate ppoE, therefore, any device wanted to be
+  linked to the router must be a CSMA like device. 
+*/
 Ptr<CsmaNetDevice>
-Ipv4Router::Link(Ptr<Node> guest, std::string iface_name){
+Ipv4Router::Link(Ptr<Node> guest, Ipv4Address guest_ip, Ipv4Mask guest_mask, std::string iface_name){
 
   Ptr<CsmaNetDevice> iface = GetIface(iface_name);
+  Ptr<CsmaNetDevice> guest_iface;
 
   if(iface==nullptr){
     NS_LOG_ERROR(
       "The interface "<<iface_name <<" does not exists, router id: "<< m_node->GetId()
     );
   }else{
+
     CsmaHelper csma;
-    csma.Install(guest, iface->GetChannel()->GetObject<CsmaChannel>());
-    Ipv4GlobalRoutingHelper::RecomputeRoutingTables();
+
+    guest_iface = csma.Install(
+      guest,
+      iface->GetChannel()->GetObject<CsmaChannel>()
+    ).Get(0)->GetObject<CsmaNetDevice>();
+
+    Ptr<Ipv4> ipv4 = guest->GetObject<Ipv4>();
+    uint32_t ip_index = ipv4->AddInterface(guest_iface);
+
+    ipv4->AddAddress(
+          ip_index,
+          Ipv4InterfaceAddress(guest_ip, guest_mask)
+        );
+
+    ipv4->SetUp(ip_index);
+  
+    ipv4->SetForwarding(
+    ip_index,
+    true
+    );
+  
   }
 
-  return iface;
+  return guest_iface;
 }
-
-
-

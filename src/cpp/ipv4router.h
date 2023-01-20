@@ -1,12 +1,10 @@
 /*
     Planificación y simulación de redes 2022/2023
-
     Autores:
         - Manuel Domínguez Montero.
         - Juan Manuel Alcalá Palomo.
         - Ismael García Mayorga.
         - Julio Navarro Vázquez
-
 */
 
 // own libraries.
@@ -42,7 +40,7 @@ public:
     NetDeviceContainer      GetIfaces();
     Ptr<CsmaNetDevice>      GetIface(std::string iface_name);      
     Ptr<CsmaNetDevice>      IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask);
-    Ptr<CsmaNetDevice>      Link(Ptr<Node> guest, std::string iface_name);
+    Ptr<CsmaNetDevice>      Link(Ptr<Node> guest, Ipv4Address guest_ip, Ipv4Mask guest_mask, std::string iface_name);
     DataRate                GetDataRate(std::string iface_name);
     void                    SetDataRate(std::string iface_name, DataRate data_rate);
 
@@ -57,4 +55,3 @@ private:
     DataRate m_gdata_rate;
     
 };
-    

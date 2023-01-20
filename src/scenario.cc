@@ -17,3 +17,9 @@
 
 // Standard libraries.
 //=========================================
+
+/*void
+BuildScenario(int ){
+
+}
+*/

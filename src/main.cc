@@ -11,25 +11,33 @@
 
 // Own libraries
 //=========================================
-#include "ipv4router.h"
+//#include "ipv4router.h"
+//#include "emu_adapter.h"
 
 // ns3 libraries.
 //=========================================
 #include "ns3/core-module.h"
-#include "ns3/simulator.h"
-#include "ns3/command-line.h"
-
-#include "ns3/internet-stack-helper.h"
-#include "ns3/net-device-container.h"
-#include "ns3/node.h"
-#include "ns3/ipv4-address-helper.h"
-#include "ns3/ipv4-interface-container.h"
-#include "ns3/ipv4-global-routing-helper.h"
-#include "ns3/inet-socket-address.h"
-#include "ns3/application-container.h"
-#include "ns3/inet-socket-address.h"
-#include "ns3/ipv4-address.h"
+#include "ns3/ptr.h"
 #include "ns3/csma-net-device.h"
+#include "ns3/csma-channel.h"
+#include "ns3/csma-module.h"
+
+#include "ns3/abort.h"
+#include "ns3/core-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/network-module.h"
+#include "ns3/fd-net-device-module.h"
+#include "ns3/applications-module.h"
+#include "ns3/ipv4-static-routing-helper.h"
+#include "ns3/ipv4-list-routing-helper.h"
+#include "ns3/v4ping.h"
+
+#include "ns3/network-module.h"
+#include "ns3/csma-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/tap-bridge-module.h"
+
 
 // Standard libraries.
 //=========================================
@@ -39,46 +47,129 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("Main");
 
-
 int main(int argc, char* argv[]){
 
-    //Tests
+    GlobalValue::Bind ("SimulatorImplementationType", StringValue ("ns3::RealtimeSimulatorImpl"));
+    GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
+
+    // Client side     
 
     Ptr<Node> guest = CreateObject<Node>();
+    Ptr<Node> server = CreateObject<Node>();
 
-    Ptr<Ipv4Router> router = new Ipv4Router();
+    CsmaHelper csma;
+    NetDeviceContainer devices = csma.Install(NodeContainer(
+        guest,
+        server
+    ));
 
-    router->IfUp(
-        "eth0",
-        Ipv4Address("10.10.10.1"),
-        Ipv4Mask("255.255.255.0")
-    );
+    InternetStackHelper stack;
+    stack.Install (guest);
+    stack.Install (server);
 
-    router->Link(guest, "eth0");
+    Ptr<Ipv4> ipv41 = guest->GetObject<Ipv4>();
+    uint32_t ip_index1 = ipv41->AddInterface(devices.Get(0));
 
-    NS_LOG_INFO("Number of Interfaces: " << router->GetIfaces().GetN());
+    ipv41->  
+        AddAddress(
+          ip_index1,
+          Ipv4InterfaceAddress(
+            Ipv4Address("10.1.1.2"), 
+            Ipv4Mask("255.255.255.0")
+            )
+        );
 
-    NS_LOG_INFO(
-        router->GetDataRate("eth0")
-    );
+    ipv41->SetUp(ip_index1);
 
-    NS_LOG_INFO(
-        router->GetGlobalDataRate()
-    );
+    ipv41->  
+        SetForwarding(   
+            ip_index1,
+            true
+        );
 
-    NS_LOG_INFO(
-        guest->GetDevice(0)->GetChannel()->GetObject<CsmaChannel>()->GetDataRate()
-    );
+    Ptr<Ipv4> ipv42 = server->GetObject<Ipv4>();
+    uint32_t ip_index2 = ipv42->AddInterface(devices.Get(1));
 
-    router->SetDataRate("eth0", DataRate("32Kbps"));
+    ipv42->  
+        AddAddress(
+          ip_index2,
+          Ipv4InterfaceAddress(
+            Ipv4Address("10.1.1.1"), 
+            Ipv4Mask("255.255.255.0")
+            )
+        );
 
-    router->SetGlobalDataRate(DataRate("10bps"));
 
-    NS_LOG_INFO(router->GetDataRate("eth0"));
+    ipv42->SetUp(ip_index2);
 
-    NS_LOG_INFO("Simulation starts.");
-    Simulator::Stop();
-    Simulator::Run();
-    NS_LOG_INFO("Simulation ends.");
+    ipv42->  
+        SetForwarding(   
+            ip_index2,
+            true
+        );
+
+    Ptr<Node> other = CreateObject<Node>();
+
+    NetDeviceContainer odevices = csma.Install(NodeContainer(
+        server,
+        other
+    ));
+
+    stack.Install (other);
+
+    uint32_t ip_index3 = ipv42->AddInterface(odevices.Get(0));
+
+    ipv42->  
+        AddAddress(
+          ip_index3,
+          Ipv4InterfaceAddress(
+            Ipv4Address("10.1.2.2"), 
+            Ipv4Mask("255.255.255.0")
+            )
+        );
+
+    ipv42->SetUp(ip_index3);
+
+    ipv42->  
+        SetForwarding(   
+            ip_index3,
+            true
+        );
+
+    
+    Ptr<Ipv4> ipv43 = other->GetObject<Ipv4>();
+    uint32_t ip_index4 = ipv43->AddInterface(odevices.Get(1));
+
+    ipv43->  
+        AddAddress(
+          ip_index4,
+          Ipv4InterfaceAddress(
+            Ipv4Address("10.1.2.1"), 
+            Ipv4Mask("255.255.255.0")
+            )
+        );
+
+    ipv43->SetUp(ip_index4);
+
+    ipv43->  
+        SetForwarding(   
+            ip_index4,
+            true
+        );
+    
+
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+
+    TapBridgeHelper tapBridge;
+    tapBridge.SetAttribute ("Mode", StringValue ("UseLocal"));
+    tapBridge.SetAttribute ("DeviceName", StringValue ("tap1"));
+    tapBridge.Install (guest, devices.Get(0));
+
+
+    NS_LOG_INFO ("Run Emulation.");
+    Simulator::Stop (Seconds (300.0));
+    Simulator::Run ();
+    Simulator::Destroy ();
+    NS_LOG_INFO ("Done.");
     
 }
