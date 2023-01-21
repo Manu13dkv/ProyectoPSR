@@ -178,11 +178,11 @@ Ipv4Router::IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask){
   We pretend to emulate ppoE, therefore, any device wanted to be
   linked to the router must be a CSMA like device. 
 */
-Ptr<CsmaNetDevice>
-Ipv4Router::Link(Ptr<Node> guest, Ipv4Address guest_ip, Ipv4Mask guest_mask, std::string iface_name){
+Ptr<NetDevice>
+Ipv4Router::Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, Ipv4Mask guest_mac){
 
   Ptr<CsmaNetDevice> iface = GetIface(iface_name);
-  Ptr<CsmaNetDevice> guest_iface;
+  Ptr<NetDevice> guest_iface;
 
   if(iface==nullptr){
     NS_LOG_ERROR(
@@ -195,23 +195,27 @@ Ipv4Router::Link(Ptr<Node> guest, Ipv4Address guest_ip, Ipv4Mask guest_mask, std
     guest_iface = csma.Install(
       guest,
       iface->GetChannel()->GetObject<CsmaChannel>()
-    ).Get(0)->GetObject<CsmaNetDevice>();
+    ).Get(0);
 
     Ptr<Ipv4> ipv4 = guest->GetObject<Ipv4>();
     uint32_t ip_index = ipv4->AddInterface(guest_iface);
 
     ipv4->AddAddress(
           ip_index,
-          Ipv4InterfaceAddress(guest_ip, guest_mask)
-        );
+          Ipv4InterfaceAddress(
+            guest_ip,
+            guest_mac
+          )
+    );
 
     ipv4->SetUp(ip_index);
   
     ipv4->SetForwarding(
-    ip_index,
-    true
+        ip_index,
+        true
     );
-  
+
+
   }
 
   return guest_iface;

@@ -67,17 +67,14 @@ EmuAdapter::GetIface(void){
 }
 
 
-Ptr<NetDevice>
-EmuAdapter::AttachTapDevice(std::string tap_name, Ptr<CsmaNetDevice> iface){
+void
+EmuAdapter::AttachTapDevice(std::string tap_name, Ptr<NetDevice> iface){
     
     TapBridgeHelper tap_helper;
     tap_helper.SetAttribute("Mode", StringValue("UseLocal"));
     tap_helper.SetAttribute("DeviceName", StringValue(tap_name));
-    tap_helper.Install(m_node, iface);
-
-    m_iface = iface;
     
-    return iface;
+    m_iface = tap_helper.Install(m_node, iface);
 }
 
 

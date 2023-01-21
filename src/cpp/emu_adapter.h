@@ -47,7 +47,7 @@ public:
     Ptr<Node>       GetNode(void);
     std::string     GetTapName(void);
     Ptr<NetDevice>  GetIface(void);
-    Ptr<NetDevice>  AttachTapDevice(std::string tap_name, Ptr<CsmaNetDevice> iface);
+    void  AttachTapDevice(std::string tap_name, Ptr<NetDevice> iface);
 
 private:
 

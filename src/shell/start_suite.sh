@@ -10,12 +10,12 @@
 #
 
 # Default values
-num_taps=2
+n_nodes=2
 base_ip="10.1.1.2"
 
 # Display usage message
 usage() {
-    echo "Usage: $0 [-n <number of tap devices>] [-b base ip for tap devices]"
+    echo "Usage: $0 [-n <number of virtual nodes>] [-b base ip for tap devices]"
 }
 	
 # Parse command-line arguments
@@ -24,8 +24,8 @@ do
     key="$1"
 
     case $key in
-        -n|--num_taps)
-            num_taps="$2"
+        -n|--n_nodes)
+            n_nodes="$2"
             shift # past argument
             shift # past value
             ;;
@@ -46,48 +46,65 @@ do
     esac
 done
 
-# Setting up virtual network.
-#
-# The ip address configured here will be deleted and reasigned eventually.
-# However, it is neccesary in order to "bind" the tap devices to the ns3 nodes. 
+# Configuring ns3 scenario.
 #
 #====================================================================================
 
-ip=${base_ip}
+echo "Configuring Ns3 Scenario..."
 
-echo "Setting up virtual bridges and tap devices..."
+xterm -e bash -c "NS_LOG='Main:info' ${HOME}/.local/bin/ns3/ns-3.36.1/ns3 run 'main.cc --n_nodes=${n_nodes}'; exec bash"&
+sleep 10
 
-for i in $(seq 1 $num_taps)
+echo "Done."
+
+# Configuring  Linux virtual devices.
+#====================================================================================
+n_taps=$(( n_nodes * 2 ))
+
+#ip=${base_ip}
+
+#echo "Setting up virtual bridges and tap devices..."
+
+tap_index=2
+while [ $tap_index -le $n_taps ]
 do
-    tap_name=tap${i}
-    bridge_name=br${i}
+    sudo ip tuntap add dev tap${tap_index} mode tap    # This is the tap to be attached to the VM.
+    sudo ip link set dev tap${tap_index} up
 
-    sudo ip link add name ${bridge_name} type bridge
-    sudo ip link set dev ${bridge_name} up
-
-    sudo ip tuntap add dev ${tap_name}f mode tap
-    sudo ifconfig ${tap_name}f hw ether 00.00.00.00.00.1${i}
-
-    sudo ip tuntap add dev ${tap_name}ns mode tap
-    sudo ifconfig ${tap_name}ns hw ether 00.00.00.00.00.0${i}
-
-    sudo brctl addif ${bridge_name} ${tap_name}f
-    sudo brctl addif ${bridge_name} ${tap_name}ns
-
-    sudo ifconfig ${tap_name}f up
-    sudo ifconfig ${tap_name}ns up
-
-    sudo sysctl -w net.ipv4.ip_forward=1
-    sudo sysctl -w net.ipv4.conf.${tap_name}f.proxy_arp=1
-    sudo sysctl -w net.ipv6.conf.${tap_name}f.disable_ipv6=1
-    sudo sysctl -w net.ipv4.conf.${tap_name}ns.proxy_arp=1
-    sudo sysctl -w net.ipv6.conf.${tap_name}ns.disable_ipv6=1
-
-    sudo ifconfig ${tap_name} hw ether 00.00.00.00.00.0${i}
-    sudo ifconfig ${tap_name} 0.0.0.0 up
-    sudo brctl addif ${bridge_name} ${tap_name} 
-
+    tap_index=$(( tap_index + 2 ))  
 done
+
+tap_index=1
+while [ $tap_index -le $n_taps ]
+do
+    sudo ip link set dev tap${tap_index} up  #Previous tap is created by ns3.
+    tap_index=$(( tap_index + 2 ))
+done
+
+tap_index=1
+for i in $(seq 1 $n_nodes)
+do
+    sudo brctl addbr br${i}
+    sudo ip link set dev br${i} up
+
+    sudo brctl addif br${i} tap${tap_index}
+
+    tap_index=$(( tap_index + 1 ))
+
+    sudo brctl addif br${i} tap${tap_index}
+    
+    tap_index=$(( tap_index + 1 ))
+    
+done
+
+
+for tap_index in $(seq 1 $n_taps)
+do
+    sudo sysctl -w net.ipv4.conf.tap${tap_index}.proxy_arp=1  
+    sudo sysctl -w net.ipv6.conf.tap${tap_index}.disable_ipv6=1
+done
+
+sudo sysctl -w net.ipv4.ip_forward=1
 
 echo "Done."
 
@@ -97,12 +114,14 @@ echo "Done."
 
 echo "Setting up the Firecracker uV.Machines..."
 
-for i in $(seq 1 $num_taps)
+tap_index=2
+for node in $(seq 1 $n_nodes)
 do
-    echo "Setting Up the kernel and filesystem for the uvm ${i}..."
-
-    tap_name=tap${i}
-    system_path=../../assets/vms/system${i}
+    echo "Setting Up the kernel and filesystem for the uvm ${node}..."
+    
+    tap_name=tap${tap_index}
+    tap_addr=00:00:00:01:00:0${node}
+    system_path=../../assets/vms/system${node}
     kernel_path=${system_path}/vmlinux
     fs_path=${system_path}/cent.ext4
 
@@ -110,28 +129,18 @@ do
 
     echo "Done."
 
-    echo "Launching uvm ${i}"
+    echo "Launching uvm ${node}"
 
-    xterm -e bash -c "firecracker --api-sock /tmp/firecracker${i}.socket; exec bash"&
-    sleep 2
-    xterm -e bash -c "~/test/firecracker/start_vm.sh -si ${i} -fs ${fs_path} -k ${kernel_path} -tn ${tap_name}f; exec bash"&
+    xterm -e bash -c "firecracker --api-sock /tmp/firecracker${node}.socket; exec bash"&
+    sleep 4
+    . ${HOME}/test/firecracker/start_vm.sh -si ${node} -fs ${fs_path} -k ${kernel_path} -tn ${tap_name} -ta ${tap_addr}&
     sleep 10
+
+    tap_index=$(( tap_index + 2 ))
 
     echo "done"
 
 done
-
-
-# Configuring ns3 scenario.
-#
-#====================================================================================
-
-echo "Configuring Ns3 Sscenario..."
-
-xterm -e bash -c "NS_LOG='Main:info' ${HOME}/.local/bin/ns3/ns-3.36.1/ns3 run main.cc; exec bash"&
-sleep 5
-
-echo "Done."
 
 
 # Moving the tap devices to isolated network namespaces.
@@ -144,21 +153,44 @@ echo "Done."
 
 #ip=${base_ip}
 
-#for i in $(seq 1 $num_taps)
+#for i in $(seq 1 $n_nodes)
 #do
+#    bridge_name=br${i}
 #    tap_name=tap${i}
-#    tap_namespace=${tap_name}ns
+#    
+#    namespace=${tap_name}ns
+#
+#    ip link add name ${bridge_name} type bridge
+#
+#    ip link add
+#
 
-#    sudo ip netns add ${tap_namespace}
-#    sudo ip link set dev ${tap_name} netns ${tap_namespace}
-#    sudo ip netns exec ${tap_namespace} ip link set dev ${tap_name} up
-#    sudo ip netns exec ${tap_namespace} ip address add ${ip}/24 dev ${tap_name}
+#    sudo ip netns add ${namespace}
+#    sudo ip link set dev ${tap_name}ns netns ${tap_namespace}
+#    sudo ip link set dev ${tap_name}f netns ${tap_namespace}
+
+#    sudo ip netns exec ${namespace} ip link set dev ${tap_name}ns up
+#    sudo ip netns exec ${namespace} ip link set dev ${tap_name}ns up
+
+#    sudo ip netns exec ${namespace} ip address add ${ip}/24 dev ${bridge_name}
 
 #    IFS="." read -a a <<< ${ip}
 #    IFS="." read -a b <<< 0.0.1.0  #Adding a subnet for each tap device
 #    ip="$[a[0]+b[0]].$[a[1]+b[1]].$[a[2]+b[2]].$[a[3]+b[3]]"
-#
+
 #done
 
 #echo "Done"
 
+
+echo "Sandboxing Suite"
+echo "==================================================="
+echo "Press 'q' to quit."
+
+while true; do
+  read -n 1 input
+  if [ "$input" == "q" ]; then
+    . delete_scenario.sh $n_nodes
+    exit 0
+  fi
+done
