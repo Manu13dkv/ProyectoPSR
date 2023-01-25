@@ -179,7 +179,7 @@ Ipv4Router::IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask){
   linked to the router must be a CSMA like device. 
 */
 Ptr<NetDevice>
-Ipv4Router::Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, Ipv4Mask guest_mac){
+Ipv4Router::Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, Ipv4Mask guest_mask){
 
   Ptr<CsmaNetDevice> iface = GetIface(iface_name);
   Ptr<NetDevice> guest_iface;
@@ -204,7 +204,7 @@ Ipv4Router::Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, 
           ip_index,
           Ipv4InterfaceAddress(
             guest_ip,
-            guest_mac
+            guest_mask
           )
     );
 
@@ -215,8 +215,24 @@ Ipv4Router::Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, 
         true
     );
 
-
   }
 
   return guest_iface;
 }
+
+
+void
+Ipv4Router::EnablePcap(void){
+
+  CsmaHelper csma;
+
+  csma.EnablePcap(
+    "router_traces",
+    m_ifaces,
+    false
+  );
+    
+}
+
+
+  

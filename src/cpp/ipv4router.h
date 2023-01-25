@@ -40,9 +40,10 @@ public:
     NetDeviceContainer      GetIfaces();
     Ptr<CsmaNetDevice>      GetIface(std::string iface_name);      
     Ptr<CsmaNetDevice>      IfUp(std::string iface_name, Ipv4Address ip, Ipv4Mask mask);
-    Ptr<NetDevice>          Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, Ipv4Mask guest_mac);
+    Ptr<NetDevice>          Link(Ptr<Node> guest, std::string iface_name, Ipv4Address guest_ip, Ipv4Mask guest_mask);
     DataRate                GetDataRate(std::string iface_name);
     void                    SetDataRate(std::string iface_name, DataRate data_rate);
+    void                    EnablePcap(void);
 
     //Accessors.
     void                    SetGlobalDataRate(DataRate data_rate);

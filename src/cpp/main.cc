@@ -38,6 +38,10 @@
 
 #include "ns3/command-line.h"
 
+
+
+
+
 // Standard libraries.
 //=========================================
 
@@ -58,8 +62,8 @@ int main(int argc, char* argv[]){
     // by an ns3 object, such as Time object to a double.
     //  
     //================================================================================
-    std::string sim_len_r = "3600s";
-    uint32_t n_nodes = 2;
+    std::string sim_len_r = "60s";
+    uint32_t n_nodes = 1;
     std::string base_ip_r = "10.1.1.0";
     std::string base_mask_r = "255.255.255.0";
     //================================================================================
@@ -88,10 +92,11 @@ int main(int argc, char* argv[]){
     Ptr<Ipv4Router> router = CreateObject<Ipv4Router>();
     uint32_t tap_index = 1;
 
-    for ( uint32_t node = 0; node < n_nodes; node++){
+    // Leave free eth0 to connect the management device.
+    for ( uint32_t node = 1; node <= n_nodes; node++){
 
         router->IfUp(       
-            "eth"+std::to_string(node),    // --> eth0, eth1 ... 
+            "eth"+std::to_string(node),    // --> eth1, eth2 ... 
             ip_helper.NewAddress(),
             base_mask
         );
@@ -106,19 +111,46 @@ int main(int argc, char* argv[]){
         );
 
         // When ns3 creates a tap device, then our system links it to a bridge 
-        // and this to another tap device, hence if ns3 create tap1, our system will 
+        // and this to another tap device, hence if ns3 create tap1, our shell script will 
         // generate tap 2. Thus, the next tap in ns3 will be directly tap3. 
-        tap->AttachTapDevice("tap"+std::to_string(tap_index), guest_iface);
+        tap->AttachTapDevice("tapns"+std::to_string(tap_index), guest_iface);
         tap_index+=2;
         ip_helper.NewNetwork();
     }
     
+    // Management device.
+    // Feel free to use it to manage the system from the host.
+    Ptr<EmuAdapter> management_tap = CreateObject<EmuAdapter>();
+
+    router->IfUp(
+        "eth0",
+        Ipv4Address("10.1.10.1"),
+        Ipv4Mask("255.255.255.0")
+    );
+
+    Ptr<NetDevice> management_iface = router->Link(
+        management_tap->GetNode(),
+        "eth0",
+        Ipv4Address("10.1.10.2"),
+        Ipv4Mask("255.255.255.0")
+    );
+
+    management_tap->AttachTapDevice("tapns0", management_iface);
+
+    // Global Config
+    //================================================================================
+    router->EnablePcap();
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
+
+    // Simulation
+    //================================================================================
     NS_LOG_INFO ("Run Emulation.");
     Simulator::Stop (sim_len);
     Simulator::Run ();
     Simulator::Destroy ();
     NS_LOG_INFO ("Done.");
     
+    return 0;
+
 }
